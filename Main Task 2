@@ -1,0 +1,112 @@
+#include "mbed.h"
+#include "arm_book_lib.h"
+
+#define EMERGENCYBLINKING_RATE     200ms
+#define LOCKOUTBLINKING_RATE     500ms
+
+// main() runs in its own thread in the OS
+int main()
+{
+
+    DigitalIn enterButton(BUTTON1);
+    DigitalIn gasDetector(D2);
+    DigitalIn overTempDetector(D3);
+    DigitalIn aButton(D4);
+    DigitalIn bButton(D5);
+    DigitalIn cButton(D6);
+    DigitalIn dButton(D7);
+
+    DigitalOut alarmLed(LED1);
+    DigitalOut incorrectCodeLed(LED3);
+    DigitalOut systemBlockedLed(LED2);
+
+    gasDetector.mode(PullDown);
+    overTempDetector.mode(PullDown);
+    aButton.mode(PullDown);
+    bButton.mode(PullDown);
+    cButton.mode(PullDown);
+    dButton.mode(PullDown);
+
+    alarmLed = OFF;
+    incorrectCodeLed = OFF;
+    systemBlockedLed = OFF;
+
+    bool alarmState = OFF;
+    bool emergencyState = OFF;
+    int numberOfIncorrectCodes = 0;
+    int lockoutTimer = 0;
+
+    while (true) {
+
+        if ( gasDetector || overTempDetector ) {
+            alarmState = ON;
+        }
+
+        if ( gasDetector && overTempDetector) {
+            emergencyState = ON;
+        }
+
+        alarmLed = alarmState;
+
+
+        if ( numberOfIncorrectCodes < 5 ) {
+            
+            while (emergencyState) {
+            alarmLed = !alarmLed;
+            ThisThread::sleep_for(EMERGENCYBLINKING_RATE);
+            if ( aButton && bButton && cButton && dButton && !enterButton ) {
+                incorrectCodeLed = OFF;
+            }
+            if ( enterButton && !incorrectCodeLed && emergencyState) {
+                if ( aButton && bButton && !cButton && !dButton ){
+                    emergencyState = OFF;
+                    alarmState = OFF;
+                    numberOfIncorrectCodes = 0;
+                } else {
+                    incorrectCodeLed = ON;
+                    numberOfIncorrectCodes = numberOfIncorrectCodes + 1;
+                }
+            }
+            while (numberOfIncorrectCodes == 5 && lockoutTimer < 60) {
+                systemBlockedLed = !systemBlockedLed;
+                ThisThread::sleep_for(LOCKOUTBLINKING_RATE);
+                systemBlockedLed = !systemBlockedLed;
+                ThisThread::sleep_for(LOCKOUTBLINKING_RATE);
+                lockoutTimer = lockoutTimer + 1;
+            } 
+            if (lockoutTimer == 60) {
+                numberOfIncorrectCodes = 0;
+                lockoutTimer = 0;
+            }
+        
+        }
+            if ( aButton && bButton && cButton && dButton && !enterButton ) {
+                incorrectCodeLed = OFF;
+            }
+
+            if ( enterButton && !incorrectCodeLed && alarmState) {
+                if ( aButton && bButton && !cButton && !dButton ) {
+                    alarmState = OFF;
+                    emergencyState = OFF;
+                    numberOfIncorrectCodes = 0;
+                } else {
+                    incorrectCodeLed = ON;
+                    numberOfIncorrectCodes = numberOfIncorrectCodes + 1;
+                }
+            }
+            while (numberOfIncorrectCodes == 5 && lockoutTimer < 60) {
+                systemBlockedLed = !systemBlockedLed;
+                ThisThread::sleep_for(LOCKOUTBLINKING_RATE);
+                systemBlockedLed = !systemBlockedLed;
+                ThisThread::sleep_for(LOCKOUTBLINKING_RATE);
+                lockoutTimer = lockoutTimer + 1;
+            } 
+            if (lockoutTimer == 60) {
+                numberOfIncorrectCodes = 0;
+                lockoutTimer = 0;
+            }
+        
+            
+        } 
+    }
+}
